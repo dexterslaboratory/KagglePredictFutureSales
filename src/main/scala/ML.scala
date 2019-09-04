@@ -1,16 +1,27 @@
 /* SimpleApp.scala */
-import org.apache.spark.sql.SparkSession
+
+import org.apache.spark
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object ML {
   def main(args: Array[String]) {
-    val spark = SparkSession.builder.appName("ML").getOrCreate()
-    val logData = spark.read.textFile(logFile)
-    val count = logData.count()
-    print(s"Hello the count is: $count")
-    val numAs = logData.filter(line => line.contains("a")).count()
-    val numBs = logData.filter(line => line.contains("b")).count()
-    println(s"Lines with a: $numAs, Lines with b: $numBs")
-    println("Hello")
+    val spark = SparkSession.builder
+      .master("local[*]")
+      .appName("ML").getOrCreate()
+    import spark.implicits._
+    val df = trainingSet(spark)
+    print(s"Hello:  ${df.count()}")
     spark.stop()
+  }
+
+  def count(df: DataFrame): Long = {
+    df.count()
+  }
+
+  def trainingSet(spark: SparkSession): DataFrame = {
+    return spark.read.format("csv")
+      .option("header", "true")
+      .option("inferSchema", "true")
+      .load("sales_train.csv")
   }
 }

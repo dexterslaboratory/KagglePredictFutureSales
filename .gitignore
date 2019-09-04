@@ -1,6 +1,4 @@
 .DS_Store
 .idea/
 spark-2.4.3-bin-hadoop2.7/
-sales_train.csv
-test.csv
 target/
