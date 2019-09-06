@@ -1,5 +1,5 @@
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.apache.spark.sql.functions.when
+import org.apache.spark.sql.functions._
 
 case class Sales(date: String, date_block_num: Int, shop_id: Int, item_id: Int, item_price: Double, item_cnt_day: Double)
 
@@ -12,6 +12,7 @@ object ML {
     .getOrCreate()
 
   import spark.implicits._
+
   def main(args: Array[String]) {
 
 
@@ -29,8 +30,16 @@ object ML {
       .as[Items]
 
     val trainingSet = createTrainingSet(salesDf, itemsDf)
+    val atMonthlyLevel = groupByBlock(trainingSet)
 
     spark.stop()
+  }
+
+  def groupByBlock(trainingSet: DataFrame) = {
+    trainingSet.groupBy($"date_block_num", $"shop_id", $"item_id")
+      .agg(avg($"item_price").as("item_price"),
+        sum($"item_cnt_day").as("item_cnt_day"),
+        max($"item_category_id").as("item_category_id"))
   }
 
   def createTrainingSet(salesDf: Dataset[Sales], itemsDf: Dataset[Items]): DataFrame = {

@@ -41,4 +41,20 @@ class MLTest extends FunSuite with DataFrameComparer with SparkSessionTestWrappe
     val actualDs = ML.createTrainingSet(salesDf, itemsDf)
     assertSmallDataFrameEquality(actualDs, expectedDs, ignoreNullable = true, ignoreColumnNames = true)
   }
+
+  test("groupByBlock should sum over daily sales") {
+    val trainingSet = Seq(
+      ("1/1/2013", 0, 111, 1022, 20.5, 12.0, 22),
+      ("4/1/2013", 0, 111, 1022, 20.5, 12.0, 22),
+      ("4/1/2013", 0, 112, 1022, 22.5, 1.0, 5)
+    ).toDF("date", "date_block_num", "shop_id", "item_id", "item_price", "item_cnt_day", "item_category_id")
+
+    val expectedDs = Seq(
+      (0, 111, 1022, 20.5, 24.0, 22),
+      (0, 112, 1022, 22.5, 1.0, 5)
+    ).toDF()
+
+    val actualDs = ML.groupByBlock(trainingSet)
+    assertSmallDataFrameEquality(actualDs, expectedDs, ignoreNullable = true, ignoreColumnNames = true)
+  }
 }
