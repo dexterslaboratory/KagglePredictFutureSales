@@ -1,6 +1,7 @@
 import org.scalatest.FunSuite
 import com.github.mrpowers.spark.fast.tests.DataFrameComparer
 import org.apache.spark.sql.SparkSession
+
 trait SparkSessionTestWrapper {
 
   lazy val spark: SparkSession = {
@@ -14,15 +15,30 @@ trait SparkSessionTestWrapper {
 
 }
 
-class MLTest extends FunSuite with DataFrameComparer with SparkSessionTestWrapper {
-  import spark.implicits._
-  test("sample test to check count"){
-    val df = Seq(
-      ("ro","w1"),
-      ("ro","w1")
-    ).toDF("col1", "col2")
+case class Sales(date: String, date_block_num: Int, shop_id: Int, item_id: Int, item_price: Double, item_cnt_day: Double)
 
-    val dfCount = ML.count(df)
-   assert(dfCount == 2)
+case class Items(item_id: Int, item_category_id: Int)
+
+class MLTest extends FunSuite with DataFrameComparer with SparkSessionTestWrapper {
+
+  import spark.implicits._
+
+  test("createTrainingSet should join sales and item datasets using item_id") {
+    val salesDf = Seq(
+      Sales("1/1/2013", 0, 111, 1022, 20.5, 12.0),
+      Sales("1/2/2013", 1, 112, 1000, 20.5, 12.0)
+    ).toDS()
+
+    val itemsDf = Seq(
+      Items(1022, 22)
+    ).toDS()
+
+    val expectedDs = Seq(
+      ("1/1/2013", 0, 111, 1022, 20.5, 12.0, 22),
+      ("1/2/2013", 1, 112, 1000, 20.5, 12.0, -1)
+    ).toDF()
+
+    val actualDs = ML.createTrainingSet(salesDf, itemsDf)
+    assertSmallDataFrameEquality(actualDs, expectedDs, ignoreNullable = true, ignoreColumnNames = true)
   }
 }
