@@ -9,6 +9,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 case class Sales(date: String, date_block_num: Int, shop_id: Int, item_id: Int, item_price: Double, item_cnt_day: Double)
+
 case class Items(item_id: Int, item_category_id: Int)
 
 object ML {
@@ -44,23 +45,23 @@ object ML {
       .setStages(Array(gbt))
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(gbt.maxIter, Array(100, 150, 200, 300))
-      .addGrid(gbt.stepSize, Array(0.9, 0.5, 0.1, 0.06, 0.01,0.001))
+      .addGrid(gbt.maxIter, Array(100, 200))
+      .addGrid(gbt.stepSize, Array(0.1, 0.001))
       .build()
 
     val cv = new CrossValidator()
       .setEstimator(pipeline)
       .setEvaluator(new RegressionEvaluator())
       .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(20)
-      .setParallelism(10)
-
+      .setNumFolds(3)
+      .setParallelism(2)
+    withFeatures.cache()
+    withFeatures.count()
     val cvModel = cv.fit(withFeatures)
-    val bins = cvModel.bestModel.asInstanceOf[PipelineModel].stages(2).asInstanceOf[GBTRegressionModel].getMaxBins
     cvModel.save("BoostRegressionModel")
 
-    cvModel.bestModel.asInstanceOf[PipelineModel].stages(0).asInstanceOf[GBTRegressionModel].getStepSize
-    cvModel.bestModel.asInstanceOf[PipelineModel].stages(0).asInstanceOf[GBTRegressionModel].getMaxIter
+    //    print(cvModel.bestModel.asInstanceOf[PipelineModel].stages(0).asInstanceOf[GBTRegressionModel].getStepSize)
+    //    print(cvModel.bestModel.asInstanceOf[PipelineModel].stages(0).asInstanceOf[GBTRegressionModel].getMaxIter)
 
     val model = CrossValidatorModel.load("BoostRegressionModel")
 
@@ -71,14 +72,15 @@ object ML {
     val predictions = model.transform(testWithFeatures)
 
     predictions
-      .drop("features", "item_category_id", "shop_id", "item_price", "item_id")
       .withColumn("ID_new", coalesce($"ID", lit(-1)))
       .drop("ID")
       .withColumnRenamed("ID_new", "ID")
+      .withColumn("item_cnt_month", when($"prediction" <= 20, $"prediction").otherwise(lit(20)))
+      .select($"ID", $"item_cnt_month")
       .coalesce(1)
       .write.format("com.databricks.spark.csv")
       .option("header", "true")
-      .save("mydata.csv")
+      .save("kaggleSubmission.csv")
 
     spark.stop()
   }
